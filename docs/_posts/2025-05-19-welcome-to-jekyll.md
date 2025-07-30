@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Differential Transformer Models: A New Approach to Attention Mechanisms"
-date: 2025-07-30
+date: 2025-07-29
 categories: [machine-learning, transformers, deep-learning]
 tags: [attention, differential-transformer, nlp, ai]
 author: Bastian Fischer
@@ -18,7 +18,7 @@ The evolution of neural network architectures for natural language processing ha
 
 The self-attention mechanism
 - For input $X \in \mathbb{R}^{n \times d_{model}}$ and weight matrices $W^Q, W^K \in \mathbb{R}^{d_{model}\times d_{k}}, W^V \in \mathbb{R}^{d_{model} \times d_{v}}$  
-- Each row of $X$ stands for one token, and the number of columns is the embedding dimension ($d_model$).
+- Each row of $X$ stands for one token, and the number of columns is the embedding dimension ($d_{model}$).
 - The Query, Key, and Value matrices are obtained by multiplying $X$ with learnable weight matrices:
   
   $$
@@ -29,7 +29,7 @@ The attention is then calculated as follows:
 
 $$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
 
-
+![Description](/graphics/ScaledDotAttention.jpg)
 Multi-head attention extends this concept:
 
 $$\text{MultiHead}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h)W^O$$ 
@@ -39,6 +39,7 @@ $$\text{head}_i = \text{Attention}(XW_i^Q, XW_i^K, XW_i^V)$$
 For For input $X \in \mathbb{R}^{n \times d_{model}}$ and weight matrices $W_i^Q, W_i^K \in \mathbb{R}^{d_{model}\times d_{k}}, W_i^V \in \mathbb{R}^{d_{model} \times d_{v}}, W^) \in \mathbb{R}^{hd_{v} \times d_{model}} (0 \leq i \leq h)$ with h attention heads
 
 Each attention head is supposed to focus on different aspects of the input and has its own set of learnable weight martrices. The result of each attention head is concatenated to form a matrix of dimension $n \times hd_{v}$. To bring this concatenated matrix back the the dimension of input $X$ it is multiplied with learnable weight matrix $W^O \in \mathbb{R}^{hd_{v} \times n}$
+![Description](/graphics/MulitHeadAttention.jpg)
 ### Advantages of Traditional Transformers
 
 - **Parallelization**: All tokens processed simultaneously
@@ -58,7 +59,6 @@ Despite their success, traditional transformers face significant challenges:
 ### Attention Quality Issues
 - **No Built-in Sparse Attention**: Leads to attention noise in long sequences
 - **Lack of Focus**: Difficulty distinguishing relevant from irrelevant information
-- **Context Dilution**: Performance degradation with very long contexts
 
 ==> Inefficient Attention for long contexts
 
@@ -96,14 +96,14 @@ $$\text{DiffAttn}(X) = \left(\text{softmax}\left(\frac{Q_1K_1^T}{\sqrt{d}}\right
 ![Description](/graphics/DiffAttnGraph.png)
 
 And as with traditional attention there is also differential multi head attention as follows:
-![Description](/graphics/diffmultiattention.jpg)
+![Description](/graphics/diffmultiattention.jpg)  
 Each attention head gets individually normed to help with training. The norm that they used is the RSM norm unlike in the graphic. This norm does not fix the output to a certain mean value, but reduces variance. There are more effective norms but this norm is computationally efficient.   
 $$\text{RMS}(\mathbf{x}) = \sqrt{\frac{1}{d} \sum_{i=1}^{d} x_i^2}$$
 $$\text{RMSNorm}(\mathbf{x})_i = \frac{x_i}{\text{RMS}(\mathbf{x})} \cdot g_i$$  
 The result is then multiplied by $(1-\lambda)$ to adjust for the subtraction(high $\lambda$ means the result of $\text{DiffAttn}(X)$ tends to be smaller) and to align it with the traditional transformer architecture this factor is chosen. 
-From there on it is the same procedure as with traditional attention just with slightly different dimension to adjust for the split:
+From there on it is the same procedure as with traditional attention just with slightly different dimensions to adjust for the split:
 1. The results of all attention heads are horizontally concatenated to form a new matrix of dimension [n, hd]
-2. This is then multiplied with the trainable weight matrix $W^O \in \mathbb{hd, d_{model}}$ 
+2. This is then multiplied with the trainable weight matrix $W^O \in \mathbb{R}^{hd, d_{model}}$ 
 3. This then yields a matrix of the dimension $[n, d_{model}]$ 
 
 
@@ -113,7 +113,7 @@ $\lambda$ is a scalar. The authors of the Differential Transformer architecture 
 
 $$\lambda = \exp(\lambda_{q1} \cdot \lambda_{k1}) - \exp(\lambda_{q2} \cdot \lambda_{k2}) + \lambda_{\text{init}}$$
 
-$\lambda_{q1}, \lambda_{q1}, \lambda_{k1}, \lambda_{k2} \in \mathbb{R}^{d}$ and $\lambda_{init} \in \mathbb{R} \text{and} 0<\lambda_{init}<1$
+$\lambda_{q1}, \lambda_{q1}, \lambda_{k1}, \lambda_{k2} \in \mathbb{R}^{d}$ and $\lambda_{init} \in \mathbb{R} \text{ and } 0<\lambda_{init}<1$
 
 Are all vectors and the scalar are non input dependant, but match the overall scheme of the architecture.
 
@@ -185,7 +185,7 @@ Though it is to be noted that this performance still is **very basic compared to
 While promising, the research has some limitations:
 - **Limited model size** in experiments raises scalability questions
 - **State-of-the-art models are significantly larger** than tested versions
-- **Unclear if benefits translate** to billion-parameter models
+- **Unclear if benefits translate** to trillion-parameter models
 
 ### No Test Regarding non-only-NLP tasks
 
