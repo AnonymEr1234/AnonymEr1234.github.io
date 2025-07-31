@@ -29,16 +29,17 @@ The attention is then calculated as follows:
 
 $$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
 
-![Description](/graphics/ScaledDotAttention.jpg)
+![Description](/graphics/ScaledDotAttention.jpg)  
 Multi-head attention extends this concept:
 
 $$\text{MultiHead}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h)W^O$$ 
 
 $$\text{head}_i = \text{Attention}(XW_i^Q, XW_i^K, XW_i^V)$$
 
-For For input $X \in \mathbb{R}^{n \times d_{model}}$ and weight matrices $W_i^Q, W_i^K \in \mathbb{R}^{d_{model}\times d_{k}}, W_i^V \in \mathbb{R}^{d_{model} \times d_{v}}, W^) \in \mathbb{R}^{hd_{v} \times d_{model}} (0 \leq i \leq h)$ with h attention heads
+For input $X \in \mathbb{R}^{n \times d_{model}}$ and weight matrices $W_i^Q, W_i^K \in \mathbb{R}^{d_{model}\times d_{k}}, W_i^V \in \mathbb{R}^{d_{model} \times d_{v}}, W^O \in \mathbb{R}^{hd_{v} \times d_{model}} (0 \leq i \leq h)$ with h attention heads
+$d_k$ is the dimension of the Key and Query and $d_v$ is the dimension of the Values. $d_k = d_v = d_{model}/h$ is mostly chosen in practice.
 
-Each attention head is supposed to focus on different aspects of the input and has its own set of learnable weight martrices. The result of each attention head is concatenated to form a matrix of dimension $n \times hd_{v}$. To bring this concatenated matrix back the the dimension of input $X$ it is multiplied with learnable weight matrix $W^O \in \mathbb{R}^{hd_{v} \times n}$
+Each attention head is supposed to focus on different aspects of the input and has its own set of learnable weight matrices. The result of each attention head is concatenated to form a matrix of dimension $n \times hd_{v}$. To bring this concatenated matrix back the the dimension of input $X$ it is multiplied with learnable weight matrix $W^O \in \mathbb{R}^{hd_{v} \times n}$  
 ![Description](/graphics/MulitHeadAttention.jpg)
 ### Advantages of Traditional Transformers
 
@@ -49,7 +50,7 @@ Each attention head is supposed to focus on different aspects of the input and h
 
 ## Problems with Traditional Transformers
 
-Despite their success, traditional transformers face significant challenges:
+But even superheros have limitations:
 
 ### Computational Limitations
 - **Quadratic Complexity**: O(n²) scaling with sequence length
@@ -64,17 +65,17 @@ Despite their success, traditional transformers face significant challenges:
 
 ### Long Context Problem
 
-For long input sequences the attention allocation is inefficient, meaning the irrelevant parts of the input sequence get too much attention. For the needle in a heystack approach the model is provided a context which contains a piece of information buried within. Now the model is queried to retrieve that piece of information. The longer the context gets the more traditional transformers struggle to retrieve the piece of information.
+In traditional transformers, attention allocation becomes increasingly inefficient for long input sequences, as irrelevant parts of the context often receive undue focus. This is vividly illustrated by the "needle-in-a-haystack" test: The model is given a lengthy context with a specific piece of information hidden deep within it, then queried to retrieve that exact detail. As the context length grows, traditional transformers falter, struggling to zero in on the relevant "needle" amid the noise – leading to poorer retrieval accuracy and diluted performance.
 
 ![Description](/graphics/Chat.png)
-This is an example for the inefficient attention allocation:
+This is an example for the inefficient attention distribution:
 ![Description](/graphics/TransformerPerformance.jpg)
 
 The most important parts, meaning the query and the answer combined get only 16% of the total attention. The differential transformer architecture aims to solve that problem.
 
 ![Description](/graphics/DiffTransPerformance.jpg)
 
-With the differential transformer architecture the model allocates 79% of its attention to the relevant parts and thus has a much higher signal-to-noise ratio.
+With the differential transformer architecture the model allocates 79% of its attention to the relevant parts and thus has a much higher signal-to-noise ratio. The Context that does not hold the answer gets only 2% of the total attention and the attention on the BOS(Beginning of Sequence) Token gets 19%, down from 32%.
 
 
 
@@ -90,7 +91,7 @@ The mechanism:
 - additionally you now also have a scalar $ \lambda$ to manage the noise cancelling of the attention mechanism
 - just like with in the traditional transformer model you use the weight matrices to project X to $XW^Q = Q, \quad XW^K = K, \quad XW^V = V$
 - afterwards Q and K are being split in the middle to $$Q_1, Q_2, K_1, K_2 \in \mathbb{R}^{n \times d}$$
-- And the following formula is used to calculate the differential attention
+- And the following formula is used to calculate the differential attention:
 $$\text{DiffAttn}(X) = \left(\text{softmax}\left(\frac{Q_1K_1^T}{\sqrt{d}}\right) - \lambda \cdot \text{softmax}\left(\frac{Q_2K_2^T}{\sqrt{d}}\right)\right)V$$
 
 ![Description](/graphics/DiffAttnGraph.png)
@@ -98,12 +99,12 @@ $$\text{DiffAttn}(X) = \left(\text{softmax}\left(\frac{Q_1K_1^T}{\sqrt{d}}\right
 And as with traditional attention there is also differential multi head attention as follows:
 ![Description](/graphics/diffmultiattention.jpg)  
 Each attention head gets individually normed to help with training. The norm that they used is the RSM norm unlike in the graphic. This norm does not fix the output to a certain mean value, but reduces variance. There are more effective norms but this norm is computationally efficient.   
-$$\text{RMS}(\mathbf{x}) = \sqrt{\frac{1}{d} \sum_{i=1}^{d} x_i^2}$$
+$$\text{RMS}(\mathbf{x}) = \sqrt{\frac{1}{d} \sum_{i=1}^{d} x_i^2}$$  
 $$\text{RMSNorm}(\mathbf{x})_i = \frac{x_i}{\text{RMS}(\mathbf{x})} \cdot g_i$$  
 The result is then multiplied by $(1-\lambda)$ to adjust for the subtraction(high $\lambda$ means the result of $\text{DiffAttn}(X)$ tends to be smaller) and to align it with the traditional transformer architecture this factor is chosen. 
 From there on it is the same procedure as with traditional attention just with slightly different dimensions to adjust for the split:
-1. The results of all attention heads are horizontally concatenated to form a new matrix of dimension [n, hd]
-2. This is then multiplied with the trainable weight matrix $W^O \in \mathbb{R}^{hd, d_{model}}$ 
+1. The results of all attention heads are horizontally concatenated to form a new matrix of dimension [n, 2hd]
+2. This is then multiplied with the trainable weight matrix $W^O \in \mathbb{R}^{2hd, d_{model}}$ 
 3. This then yields a matrix of the dimension $[n, d_{model}]$ 
 
 
@@ -125,24 +126,24 @@ where l is the layer index.
 
 ### Overall Structure
 
-
-$$\text{headprev}_i = \text{DiffAttn}(X; W^Q_i, W^K_i, W^V_i, \lambda)$$
-
-$$\text{head}_i = (1 - \lambda_{\text{init}}) \cdot \text{LN}(\text{headprev}_i)$$
-
-$$\text{MultiHead}(X) = \text{Concat}(\text{head}_1, \ldots, \text{head}_h)W^O$$
-
 Each Differential Transformer layer maintains the same macro structure as traditional transformers:
 
 $$Y^l = \text{MultiHead}(\text{LN}(X^l)) + X^l$$
 
 $$X^{l+1} = \text{SwiGLU}(\text{LN}(Y^l)) + Y^l$$
 
+The Multi Head Attention is meant to add context about the rest of the tokes in the sequence and the SwiGLU function is meant to gate information.
+
+### Summary
+
+The differential attention mechanism is similar to the traditional one. The main difference is that now each token gets projected to K and Q where the first $d$ dimensions are representing the things to focus on and the second $d$ dimensions are the things to actively not pay attention to. The appropriate analogy is normal and ANC(active noise canceling) headphones. With normal headphones you can try to drown the noise from the background out by turning the volume all the way up. But this comes with significant downsides. ANC headphones on the other hand have a mechanism to cancel out background noise to improve the sound quality. In this analogy traditional transformers are the normal headphones and differential transformers are the ANC headphones.
+
 ## Experimental Results
 
 ### Needle-in-a-Haystack Performance
 
-The Needle-in-a-Haystack test evaluates a model's ability to extract specific information from large contexts. Results show:
+The Needle-in-a-Haystack test evaluates a model's ability to extract specific information from large contexts. The test cases are categorized by the length of the context and the depth in which the information is buried. The higher the depth and the longer the context the harder it is to retrieve the information.  
+Results show:
 
 - **Minor differences at low context lengths**
 - **Superior performance with increasing context length and depth**
@@ -172,7 +173,7 @@ Though it is to be noted that this performance still is **very basic compared to
 
 - **Suggests** diff transformer scales well with increases in the number of parameters and training tokens
 - **Same performance with noticeably less parameters and training tokens**
-- 6.8 B parameter diff transformer has similar performance to 11B parameters traditional transformer
+- 6.8 B parameter diff transformer has similar performance to 11B parameters traditional transformer. This could be pariculary important for locally hosted LLMs. Because a lot people(gamers, etc.) still have GPUs with 8 GB VRAM. These people could now run a much more powerful LLM than before. This can also enable private users to provide the model with longer contexts, where the model would usually run out of VRAM.
 ![Description](/graphics/parascale.jpg)
 - Diff Transformer trained with 160B tokens has comparable performance to traditional transformer trained with 251B tokens
 ![Description](/graphics/trainingscale.jpg)
@@ -214,4 +215,5 @@ As the AI community continues to push the boundaries of what's possible with tra
 - Ye et al. (2025). "Differential Transformer"
 - Transformers for Machine Learning: A Deep Dive
 - https://medium.com/@thirupathi.thangavel/limitations-of-transformer-architecture-4e6118cbf5a4
+- https://medium.com/@lyx_62906/context-kills-vram-how-to-run-llms-on-consumer-gpus-a785e8035632
 
